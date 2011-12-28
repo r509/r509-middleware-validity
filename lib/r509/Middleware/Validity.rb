@@ -28,9 +28,37 @@ module R509
                         @writer.issue(cert.cert.serial.to_s)
                     rescue
                     end
+                elsif not (env["PATH_INFO"] =~ /^\/1\/certificate\/revoke\/?$/).nil? and status == 200
+                    @app.log.info "Revoke"
+                    params = parse_params(env)
+
+                    serial = params["serial"]
+                    reason = params["reason"].to_i || 0
+
+                    @app.log.info "Revoking serial: #{serial}, reason: #{reason}"
+
+                    @writer.revoke(serial, reason)
+                elsif not (env["PATH_INFO"] =~ /^\/1\/certificate\/unrevoke\/?$/).nil? and status == 200
+                    @app.log.info "Unrevoke"
+                    params = parse_params(env)
+
+                    serial = params["serial"]
+
+                    @app.log.info "Unrevoking serial: #{serial}"
+
+                    @writer.unrevoke(serial)
                 end
 
                 [status, headers, response]
+            end
+
+            private
+
+            def parse_params(env)
+                raw_request = env["rack.input"].read
+                env["rack.input"].rewind
+
+                Rack::Utils.parse_query(raw_request)
             end
         end
     end
