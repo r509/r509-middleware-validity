@@ -185,6 +185,21 @@ describe R509::Middleware::Validity do
             post "/1/certificate/unrevoke", :successful => true, :serial => 1234
             last_response.status.should == 200
         end
+        it "fails to record unrevoke" do
+            class R509::Validity::Redis::Writer
+                def issue(serial)
+                    raise StandardError.new("Should never issue")
+                end
+                def revoke(serial, reason=0)
+                    raise StandardError.new("Should never revoke")
+                end
+                def unrevoke(serial)
+                    raise StandardError.new("Unrevoke failed, probably because the cert didn't exist")
+                end
+            end
+            post "/1/certificate/unrevoke", :successful => true, :serial => 1234
+            last_response.status.should == 200
+        end
         it "fails to unrevoke" do
             class R509::Validity::Redis::Writer
                 def issue(serial)

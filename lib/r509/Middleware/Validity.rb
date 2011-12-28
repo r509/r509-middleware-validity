@@ -29,22 +29,28 @@ module R509
                     rescue
                     end
                 elsif not (env["PATH_INFO"] =~ /^\/1\/certificate\/revoke\/?$/).nil? and status == 200
-                    params = parse_params(env)
+                    begin
+                        params = parse_params(env)
 
-                    serial = params["serial"]
-                    reason = params["reason"].to_i || 0
+                        serial = params["serial"]
+                        reason = params["reason"].to_i || 0
 
-                    @app.log.info "Revoking serial: #{serial}, reason: #{reason}"
+                        @app.log.info "Revoking serial: #{serial}, reason: #{reason}"
 
-                    @writer.revoke(serial, reason)
+                        @writer.revoke(serial, reason)
+                    rescue
+                    end
                 elsif not (env["PATH_INFO"] =~ /^\/1\/certificate\/unrevoke\/?$/).nil? and status == 200
-                    params = parse_params(env)
+                    begin
+                        params = parse_params(env)
 
-                    serial = params["serial"]
+                        serial = params["serial"]
 
-                    @app.log.info "Unrevoking serial: #{serial}"
+                        @app.log.info "Unrevoking serial: #{serial}"
 
-                    @writer.unrevoke(serial)
+                        @writer.unrevoke(serial)
+                    rescue
+                    end
                 end
 
                 [status, headers, response]
