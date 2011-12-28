@@ -29,7 +29,6 @@ module R509
                     rescue
                     end
                 elsif not (env["PATH_INFO"] =~ /^\/1\/certificate\/revoke\/?$/).nil? and status == 200
-                    @app.log.info "Revoke"
                     params = parse_params(env)
 
                     serial = params["serial"]
@@ -39,7 +38,6 @@ module R509
 
                     @writer.revoke(serial, reason)
                 elsif not (env["PATH_INFO"] =~ /^\/1\/certificate\/unrevoke\/?$/).nil? and status == 200
-                    @app.log.info "Unrevoke"
                     params = parse_params(env)
 
                     serial = params["serial"]
