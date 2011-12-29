@@ -1,4 +1,3 @@
-require "r509"
 require "redis"
 require "r509/Validity/Redis/Writer"
 
@@ -9,6 +8,7 @@ module R509
                 @app = app
 
                 redis = Redis.new
+                @app.log.info redis.inspect
                 @writer = R509::Validity::Redis::Writer.new(redis)
             end
 
@@ -37,8 +37,9 @@ module R509
 
                         @app.log.info "Revoking serial: #{serial}, reason: #{reason}"
 
-                        @writer.revoke(serial, reason)
+                        @writer.revoke(serial, Time.now.to_i, reason)
                     rescue
+                        @app.log.info "Failed to revoke"
                     end
                 elsif not (env["PATH_INFO"] =~ /^\/1\/certificate\/unrevoke\/?$/).nil? and status == 200
                     begin

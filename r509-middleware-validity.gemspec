@@ -8,7 +8,6 @@ spec = Gem::Specification.new do |s|
   s.has_rdoc = false
   s.summary = "Rack middleware that writes the serial number of issued certs to a Redis database"
   s.description = "Rack middleware that writes the serial number of issued certs to a Redis database"
-  s.add_dependency 'r509'
   s.add_dependency 'redis'
   s.add_development_dependency 'rspec'
   s.add_development_dependency 'syntax'

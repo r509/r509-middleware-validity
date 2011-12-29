@@ -142,8 +142,8 @@ describe R509::Middleware::Validity do
                 def issue(serial)
                     raise StandardError.new("Should never issue")
                 end
-                def revoke(serial, reason=0)
-                    raise StandardError.new("Must revoke 1234 (not #{serial})") unless serial == 1234.to_s and reason == 1
+                def revoke(serial, time=0, reason=0)
+                    raise StandardError.new("Must revoke 1234 (not #{serial})") unless serial == 1234.to_s and reason == 1 and time == Time.now.to_i
                 end
                 def unrevoke(serial)
                     raise StandardError.new("Should never unrevoke")
