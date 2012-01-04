@@ -5,12 +5,7 @@ require "logger"
 class TestServer < Sinatra::Base
     configure do
         set :log, Logger.new(nil)
-    end
-
-    helpers do
-        def log
-            settings.log
-        end
+        set :certificate_authorities, nil
     end
 
     error StandardError do
@@ -49,22 +44,29 @@ class TestServer < Sinatra::Base
 end
 
 describe R509::Middleware::Validity do
+    before :each do
+        @logger = double("logger")
+        @redis = double("redis")
+        @config = double("config")
+        @ca_cert = double("ca_cert")
+        @certificate_authorities = double("certificate_authorities")
+
+        verbosity = $VERBOSE
+        $VERBOSE = nil
+        R509::Validity::Redis::Writer = double("writer")
+        $VERBOSE = verbosity
+
+        R509::Validity::Redis::Writer.should_receive(:new).with(@redis).and_return(R509::Validity::Redis::Writer)
+    end
     def app
-        @app ||= R509::Middleware::Validity.new(TestServer)
+        test_server = TestServer
+        test_server.send(:set, :log, @logger)
+        test_server.send(:set, :certificate_authorities, @certificate_authorities)
+
+        @app ||= R509::Middleware::Validity.new(test_server,@redis)
     end
 
     context "some path" do
-        class R509::Validity::Redis::Writer
-            def issue(serial)
-                raise StandardError.new("Should never issue")
-            end
-            def revoke(serial, reason=0)
-                raise StandardError.new("Should never revoke")
-            end
-            def unrevoke(serial)
-                raise StandardError.new("Should never unrevoke")
-            end
-        end
         it "returns some return value" do
             get "/some/path"
             last_response.body.should == "return value"
@@ -73,48 +75,19 @@ describe R509::Middleware::Validity do
 
     context "issuing" do
         it "intercepts issuance" do
-            class R509::Validity::Redis::Writer
-                def issue(serial)
-                    raise StandardError.new("Must issue serial 211653423715") unless serial == "211653423715"
-                end
-                def revoke(serial, reason=0)
-                    raise StandardError.new("Should never revoke")
-                end
-                def unrevoke(serial)
-                    raise StandardError.new("Should never unrevoke")
-                end
-            end
+            R509::Validity::Redis::Writer.should_receive(:issue).with("/C=US/O=SecureTrust Corporation/CN=SecureTrust CA","211653423715")
+            @logger.should_receive(:info).with("Writing serial: 211653423715")
+
             post "/1/certificate/issue", :successful => true
             last_response.status.should == 200
             last_response.body.should == TestFixtures::CERT
         end
         it "fails issuance" do
-            class R509::Validity::Redis::Writer
-                def issue(serial)
-                    raise StandardError.new("Should never issue")
-                end
-                def revoke(serial, reason=0)
-                    raise StandardError.new("Should never revoke")
-                end
-                def unrevoke(serial)
-                    raise StandardError.new("Should never unrevoke")
-                end
-            end
             post "/1/certificate/issue/"
             last_response.status.should == 500
         end
         it "invalid cert body" do
-            class R509::Validity::Redis::Writer
-                def issue(serial)
-                    raise StandardError.new("Should never issue")
-                end
-                def revoke(serial, reason=0)
-                    raise StandardError.new("Should never revoke")
-                end
-                def unrevoke(serial)
-                    raise StandardError.new("Should never unrevoke")
-                end
-            end
+            @logger.should_receive(:error).exactly(3).times
             post "/1/certificate/issue", :invalid_body => true
             last_response.status.should == 200
             last_response.body.should == "invalid cert body"
@@ -123,47 +96,25 @@ describe R509::Middleware::Validity do
 
     context "revoking" do
         it "intercepts revoke" do
-            class R509::Validity::Redis::Writer
-                def issue(serial)
-                    raise StandardError.new("Should never issue")
-                end
-                def revoke(serial, reason=0)
-                    raise StandardError.new("Must revoke 1234 (not #{serial})") unless serial == 1234.to_s and reason == 0
-                end
-                def unrevoke(serial)
-                    raise StandardError.new("Should never unrevoke")
-                end
-            end
-            post "/1/certificate/revoke", :successful => true, :serial => 1234
+            R509::Validity::Redis::Writer.should_receive(:revoke).with("/CN=Some CA","1234", Time.now.to_i, 0)
+            @logger.should_receive(:info).with("Revoking serial: 1234, reason: 0")
+            @certificate_authorities.should_receive(:[]).with("some_ca").and_return(@config)
+            @config.should_receive(:ca_cert).and_return(@ca_cert)
+            @ca_cert.should_receive(:subject).and_return("/CN=Some CA")
+
+            post "/1/certificate/revoke", :successful => true, :serial => 1234, :ca => "some_ca"
             last_response.status.should == 200
         end
         it "intercepts revoke with reason" do
-            class R509::Validity::Redis::Writer
-                def issue(serial)
-                    raise StandardError.new("Should never issue")
-                end
-                def revoke(serial, time=0, reason=0)
-                    raise StandardError.new("Must revoke 1234 (not #{serial})") unless serial == 1234.to_s and reason == 1 and time == Time.now.to_i
-                end
-                def unrevoke(serial)
-                    raise StandardError.new("Should never unrevoke")
-                end
-            end
-            post "/1/certificate/revoke", :successful => true, :serial => 1234, :reason => 1
+            R509::Validity::Redis::Writer.should_receive(:revoke).with("/CN=Some CA","1234", Time.now.to_i, 1)
+            @logger.should_receive(:info).with("Revoking serial: 1234, reason: 1")
+            @certificate_authorities.should_receive(:[]).with("some_ca").and_return(@config)
+            @config.should_receive(:ca_cert).and_return(@ca_cert)
+            @ca_cert.should_receive(:subject).and_return("/CN=Some CA")
+            post "/1/certificate/revoke", :successful => true, :ca => "some_ca", :serial => 1234, :reason => 1
             last_response.status.should == 200
         end
         it "fails to revoke" do
-            class R509::Validity::Redis::Writer
-                def issue(serial)
-                    raise StandardError.new("Should never issue")
-                end
-                def revoke(serial, reason=0)
-                    raise StandardError.new("Should never revoke")
-                end
-                def unrevoke(serial)
-                    raise StandardError.new("Should never unrevoke")
-                end
-            end
             post "/1/certificate/revoke"
             last_response.status.should == 500
         end
@@ -171,47 +122,25 @@ describe R509::Middleware::Validity do
 
     context "unrevoking" do
         it "intercepts unrevoke" do
-            class R509::Validity::Redis::Writer
-                def issue(serial)
-                    raise StandardError.new("Should never issue")
-                end
-                def revoke(serial, reason=0)
-                    raise StandardError.new("Should never revoke")
-                end
-                def unrevoke(serial)
-                    raise StandardError.new("Should unrevoke 1234, not #{serial}") unless serial == 1234.to_s
-                end
-            end
-            post "/1/certificate/unrevoke", :successful => true, :serial => 1234
+            R509::Validity::Redis::Writer.should_receive(:unrevoke).with("/CN=Some CA","1234")
+            @logger.should_receive(:info).with("Unrevoking serial: 1234")
+            @certificate_authorities.should_receive(:[]).with("some_ca").and_return(@config)
+            @config.should_receive(:ca_cert).and_return(@ca_cert)
+            @ca_cert.should_receive(:subject).and_return("/CN=Some CA")
+            post "/1/certificate/unrevoke", :successful => true, :serial => 1234, :ca => "some_ca"
             last_response.status.should == 200
         end
         it "fails to record unrevoke" do
-            class R509::Validity::Redis::Writer
-                def issue(serial)
-                    raise StandardError.new("Should never issue")
-                end
-                def revoke(serial, reason=0)
-                    raise StandardError.new("Should never revoke")
-                end
-                def unrevoke(serial)
-                    raise StandardError.new("Unrevoke failed, probably because the cert didn't exist")
-                end
-            end
-            post "/1/certificate/unrevoke", :successful => true, :serial => 1234
+            R509::Validity::Redis::Writer.should_receive(:unrevoke).with("/CN=Some CA","1234").and_raise(StandardError)
+            @logger.should_receive(:info).with("Unrevoking serial: 1234")
+            @logger.should_receive(:error).exactly(3).times
+            @certificate_authorities.should_receive(:[]).with("some_ca").and_return(@config)
+            @config.should_receive(:ca_cert).and_return(@ca_cert)
+            @ca_cert.should_receive(:subject).and_return("/CN=Some CA")
+            post "/1/certificate/unrevoke", :successful => true, :serial => 1234, :ca => "some_ca"
             last_response.status.should == 200
         end
         it "fails to unrevoke" do
-            class R509::Validity::Redis::Writer
-                def issue(serial)
-                    raise StandardError.new("Should never issue")
-                end
-                def revoke(serial, reason=0)
-                    raise StandardError.new("Should never revoke")
-                end
-                def unrevoke(serial)
-                    raise StandardError.new("Should never unrevoke")
-                end
-            end
             post "/1/certificate/unrevoke"
             last_response.status.should == 500
         end
