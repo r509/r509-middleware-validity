@@ -4,11 +4,12 @@ require "r509/Validity/Redis/Writer"
 module R509
     module Middleware
         class Validity
-            def initialize(app)
+            def initialize(app,redis=nil)
                 @app = app
 
-                redis = Redis.new
-                @app.log.info redis.inspect
+                if redis.nil?
+                    redis = Redis.new
+                end
                 @writer = R509::Validity::Redis::Writer.new(redis)
             end
 
@@ -24,33 +25,43 @@ module R509
                     end
                     begin
                         cert = R509::Cert.new(:cert => body)
-                        @app.log.info "Recording serial: #{cert.cert.serial.to_s}"
-                        @writer.issue(cert.cert.serial.to_s)
-                    rescue
+                        @app.log.info "Writing serial: #{cert.serial.to_s}"
+                        @writer.issue(cert.issuer.to_s,cert.serial.to_s)
+                    rescue => e
+                        @app.log.error "Writing failed"
+                        @app.log.error e.inspect
+                        @app.log.error e.backtrace.join("\n")
                     end
                 elsif not (env["PATH_INFO"] =~ /^\/1\/certificate\/revoke\/?$/).nil? and status == 200
                     begin
                         params = parse_params(env)
 
+                        issuer = @app.certificate_authorities[params["ca"]].ca_cert.subject.to_s
                         serial = params["serial"]
                         reason = params["reason"].to_i || 0
 
                         @app.log.info "Revoking serial: #{serial}, reason: #{reason}"
 
-                        @writer.revoke(serial, Time.now.to_i, reason)
-                    rescue
-                        @app.log.info "Failed to revoke"
+                        @writer.revoke(issuer, serial, Time.now.to_i, reason)
+                    rescue => e
+                        @app.log.error "Revoking failed: #{serial}"
+                        @app.log.error e.inspect
+                        @app.log.error e.backtrace.join("\n")
                     end
                 elsif not (env["PATH_INFO"] =~ /^\/1\/certificate\/unrevoke\/?$/).nil? and status == 200
                     begin
                         params = parse_params(env)
 
+                        issuer = @app.certificate_authorities[params["ca"]].ca_cert.subject.to_s
                         serial = params["serial"]
 
                         @app.log.info "Unrevoking serial: #{serial}"
 
-                        @writer.unrevoke(serial)
-                    rescue
+                        @writer.unrevoke(issuer, serial)
+                    rescue => e
+                        @app.log.error "Unrevoking failed: #{serial}"
+                        @app.log.error e.inspect
+                        @app.log.error e.backtrace.join("\n")
                     end
                 end
 
