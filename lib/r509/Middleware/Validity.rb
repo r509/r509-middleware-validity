@@ -25,18 +25,17 @@ module R509
                     end
                     begin
                         cert = R509::Cert.new(:cert => body)
-                        @app.log.info "Writing serial: #{cert.serial.to_s}"
+                        @app.log.info "Writing serial: #{cert.serial.to_s}, Issuer: #{cert.issuer.to_s}"
                         @writer.issue(cert.issuer.to_s,cert.serial.to_s)
                     rescue => e
                         @app.log.error "Writing failed"
                         @app.log.error e.inspect
-                        @app.log.error e.backtrace.join("\n")
                     end
                 elsif not (env["PATH_INFO"] =~ /^\/1\/certificate\/revoke\/?$/).nil? and status == 200
                     begin
                         params = parse_params(env)
 
-                        issuer = @app.certificate_authorities[params["ca"]].ca_cert.subject.to_s
+                        issuer = @app.config_pool[params["ca"]].ca_cert.subject.to_s
                         serial = params["serial"]
                         reason = params["reason"].to_i || 0
 
@@ -46,13 +45,12 @@ module R509
                     rescue => e
                         @app.log.error "Revoking failed: #{serial}"
                         @app.log.error e.inspect
-                        @app.log.error e.backtrace.join("\n")
                     end
                 elsif not (env["PATH_INFO"] =~ /^\/1\/certificate\/unrevoke\/?$/).nil? and status == 200
                     begin
                         params = parse_params(env)
 
-                        issuer = @app.certificate_authorities[params["ca"]].ca_cert.subject.to_s
+                        issuer = @app.config_pool[params["ca"]].ca_cert.subject.to_s
                         serial = params["serial"]
 
                         @app.log.info "Unrevoking serial: #{serial}"
@@ -61,7 +59,6 @@ module R509
                     rescue => e
                         @app.log.error "Unrevoking failed: #{serial}"
                         @app.log.error e.inspect
-                        @app.log.error e.backtrace.join("\n")
                     end
                 end
 

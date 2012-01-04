@@ -5,7 +5,7 @@ require "logger"
 class TestServer < Sinatra::Base
     configure do
         set :log, Logger.new(nil)
-        set :certificate_authorities, nil
+        set :config_pool, nil
     end
 
     error StandardError do
@@ -49,7 +49,7 @@ describe R509::Middleware::Validity do
         @redis = double("redis")
         @config = double("config")
         @ca_cert = double("ca_cert")
-        @certificate_authorities = double("certificate_authorities")
+        @config_pool = double("config_pool")
 
         verbosity = $VERBOSE
         $VERBOSE = nil
@@ -61,7 +61,7 @@ describe R509::Middleware::Validity do
     def app
         test_server = TestServer
         test_server.send(:set, :log, @logger)
-        test_server.send(:set, :certificate_authorities, @certificate_authorities)
+        test_server.send(:set, :config_pool, @config_pool)
 
         @app ||= R509::Middleware::Validity.new(test_server,@redis)
     end
@@ -76,7 +76,7 @@ describe R509::Middleware::Validity do
     context "issuing" do
         it "intercepts issuance" do
             R509::Validity::Redis::Writer.should_receive(:issue).with("/C=US/O=SecureTrust Corporation/CN=SecureTrust CA","211653423715")
-            @logger.should_receive(:info).with("Writing serial: 211653423715")
+            @logger.should_receive(:info).with("Writing serial: 211653423715, Issuer: /C=US/O=SecureTrust Corporation/CN=SecureTrust CA")
 
             post "/1/certificate/issue", :successful => true
             last_response.status.should == 200
@@ -87,7 +87,7 @@ describe R509::Middleware::Validity do
             last_response.status.should == 500
         end
         it "invalid cert body" do
-            @logger.should_receive(:error).exactly(3).times
+            @logger.should_receive(:error).twice
             post "/1/certificate/issue", :invalid_body => true
             last_response.status.should == 200
             last_response.body.should == "invalid cert body"
@@ -98,7 +98,7 @@ describe R509::Middleware::Validity do
         it "intercepts revoke" do
             R509::Validity::Redis::Writer.should_receive(:revoke).with("/CN=Some CA","1234", Time.now.to_i, 0)
             @logger.should_receive(:info).with("Revoking serial: 1234, reason: 0")
-            @certificate_authorities.should_receive(:[]).with("some_ca").and_return(@config)
+            @config_pool.should_receive(:[]).with("some_ca").and_return(@config)
             @config.should_receive(:ca_cert).and_return(@ca_cert)
             @ca_cert.should_receive(:subject).and_return("/CN=Some CA")
 
@@ -108,7 +108,7 @@ describe R509::Middleware::Validity do
         it "intercepts revoke with reason" do
             R509::Validity::Redis::Writer.should_receive(:revoke).with("/CN=Some CA","1234", Time.now.to_i, 1)
             @logger.should_receive(:info).with("Revoking serial: 1234, reason: 1")
-            @certificate_authorities.should_receive(:[]).with("some_ca").and_return(@config)
+            @config_pool.should_receive(:[]).with("some_ca").and_return(@config)
             @config.should_receive(:ca_cert).and_return(@ca_cert)
             @ca_cert.should_receive(:subject).and_return("/CN=Some CA")
             post "/1/certificate/revoke", :successful => true, :ca => "some_ca", :serial => 1234, :reason => 1
@@ -124,7 +124,7 @@ describe R509::Middleware::Validity do
         it "intercepts unrevoke" do
             R509::Validity::Redis::Writer.should_receive(:unrevoke).with("/CN=Some CA","1234")
             @logger.should_receive(:info).with("Unrevoking serial: 1234")
-            @certificate_authorities.should_receive(:[]).with("some_ca").and_return(@config)
+            @config_pool.should_receive(:[]).with("some_ca").and_return(@config)
             @config.should_receive(:ca_cert).and_return(@ca_cert)
             @ca_cert.should_receive(:subject).and_return("/CN=Some CA")
             post "/1/certificate/unrevoke", :successful => true, :serial => 1234, :ca => "some_ca"
@@ -133,8 +133,8 @@ describe R509::Middleware::Validity do
         it "fails to record unrevoke" do
             R509::Validity::Redis::Writer.should_receive(:unrevoke).with("/CN=Some CA","1234").and_raise(StandardError)
             @logger.should_receive(:info).with("Unrevoking serial: 1234")
-            @logger.should_receive(:error).exactly(3).times
-            @certificate_authorities.should_receive(:[]).with("some_ca").and_return(@config)
+            @logger.should_receive(:error).twice
+            @config_pool.should_receive(:[]).with("some_ca").and_return(@config)
             @config.should_receive(:ca_cert).and_return(@ca_cert)
             @ca_cert.should_receive(:subject).and_return("/CN=Some CA")
             post "/1/certificate/unrevoke", :successful => true, :serial => 1234, :ca => "some_ca"
