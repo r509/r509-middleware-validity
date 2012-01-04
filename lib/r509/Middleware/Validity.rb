@@ -36,7 +36,7 @@ module R509
                     begin
                         params = parse_params(env)
 
-                        issuer = params["issuer"]
+                        issuer = @app.certificate_authorities[params["ca"]].ca_cert.subject.to_s
                         serial = params["serial"]
                         reason = params["reason"].to_i || 0
 
@@ -52,7 +52,7 @@ module R509
                     begin
                         params = parse_params(env)
 
-                        issuer = params["issuer"]
+                        issuer = @app.certificate_authorities[params["ca"]].ca_cert.subject.to_s
                         serial = params["serial"]
 
                         @app.log.info "Unrevoking serial: #{serial}"

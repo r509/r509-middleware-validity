@@ -5,12 +5,7 @@ require "logger"
 class TestServer < Sinatra::Base
     configure do
         set :log, Logger.new(nil)
-    end
-
-    helpers do
-        def log
-            settings.log
-        end
+        set :certificate_authorities, nil
     end
 
     error StandardError do
@@ -52,6 +47,9 @@ describe R509::Middleware::Validity do
     before :each do
         @logger = double("logger")
         @redis = double("redis")
+        @config = double("config")
+        @ca_cert = double("ca_cert")
+        @certificate_authorities = double("certificate_authorities")
 
         verbosity = $VERBOSE
         $VERBOSE = nil
@@ -62,7 +60,9 @@ describe R509::Middleware::Validity do
     end
     def app
         test_server = TestServer
-        test_server.send(:set,:log,@logger)
+        test_server.send(:set, :log, @logger)
+        test_server.send(:set, :certificate_authorities, @certificate_authorities)
+
         @app ||= R509::Middleware::Validity.new(test_server,@redis)
     end
 
@@ -98,13 +98,20 @@ describe R509::Middleware::Validity do
         it "intercepts revoke" do
             R509::Validity::Redis::Writer.should_receive(:revoke).with("/CN=Some CA","1234", Time.now.to_i, 0)
             @logger.should_receive(:info).with("Revoking serial: 1234, reason: 0")
-            post "/1/certificate/revoke", :successful => true, :serial => 1234, :issuer => "/CN=Some CA"
+            @certificate_authorities.should_receive(:[]).with("some_ca").and_return(@config)
+            @config.should_receive(:ca_cert).and_return(@ca_cert)
+            @ca_cert.should_receive(:subject).and_return("/CN=Some CA")
+
+            post "/1/certificate/revoke", :successful => true, :serial => 1234, :ca => "some_ca"
             last_response.status.should == 200
         end
         it "intercepts revoke with reason" do
             R509::Validity::Redis::Writer.should_receive(:revoke).with("/CN=Some CA","1234", Time.now.to_i, 1)
             @logger.should_receive(:info).with("Revoking serial: 1234, reason: 1")
-            post "/1/certificate/revoke", :successful => true, :issuer => "/CN=Some CA", :serial => 1234, :reason => 1
+            @certificate_authorities.should_receive(:[]).with("some_ca").and_return(@config)
+            @config.should_receive(:ca_cert).and_return(@ca_cert)
+            @ca_cert.should_receive(:subject).and_return("/CN=Some CA")
+            post "/1/certificate/revoke", :successful => true, :ca => "some_ca", :serial => 1234, :reason => 1
             last_response.status.should == 200
         end
         it "fails to revoke" do
@@ -117,14 +124,20 @@ describe R509::Middleware::Validity do
         it "intercepts unrevoke" do
             R509::Validity::Redis::Writer.should_receive(:unrevoke).with("/CN=Some CA","1234")
             @logger.should_receive(:info).with("Unrevoking serial: 1234")
-            post "/1/certificate/unrevoke", :successful => true, :serial => 1234, :issuer => "/CN=Some CA"
+            @certificate_authorities.should_receive(:[]).with("some_ca").and_return(@config)
+            @config.should_receive(:ca_cert).and_return(@ca_cert)
+            @ca_cert.should_receive(:subject).and_return("/CN=Some CA")
+            post "/1/certificate/unrevoke", :successful => true, :serial => 1234, :ca => "some_ca"
             last_response.status.should == 200
         end
         it "fails to record unrevoke" do
             R509::Validity::Redis::Writer.should_receive(:unrevoke).with("/CN=Some CA","1234").and_raise(StandardError)
             @logger.should_receive(:info).with("Unrevoking serial: 1234")
             @logger.should_receive(:error).exactly(3).times
-            post "/1/certificate/unrevoke", :successful => true, :serial => 1234, :issuer => "/CN=Some CA"
+            @certificate_authorities.should_receive(:[]).with("some_ca").and_return(@config)
+            @config.should_receive(:ca_cert).and_return(@ca_cert)
+            @ca_cert.should_receive(:subject).and_return("/CN=Some CA")
+            post "/1/certificate/unrevoke", :successful => true, :serial => 1234, :ca => "some_ca"
             last_response.status.should == 200
         end
         it "fails to unrevoke" do
