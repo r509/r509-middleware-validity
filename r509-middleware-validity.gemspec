@@ -1,5 +1,5 @@
 $:.push File.expand_path("../lib", __FILE__)
-require "r509/Middleware/Validity/Version"
+require "r509/middleware/validity/version"
 
 spec = Gem::Specification.new do |s|
   s.name = 'r509-middleware-validity'
