@@ -9,7 +9,7 @@ require 'rubygems'
 require 'fixtures'
 require 'rspec'
 require 'rack/test'
-require 'r509/Middleware/Validity'
+require 'r509/middleware/validity'
 
 RSpec.configure do |conf|
   conf.include Rack::Test::Methods

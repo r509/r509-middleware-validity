@@ -1,5 +1,5 @@
 require "redis"
-require "r509/Validity/Redis/Writer"
+require "r509/validity/redis/writer"
 
 module R509
     module Middleware
