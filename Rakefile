@@ -1,6 +1,6 @@
 require 'rubygems'
 require 'rspec/core/rake_task'
-require "#{File.dirname(__FILE__)}/lib/r509/Middleware/Validity/Version"
+require "#{File.dirname(__FILE__)}/lib/r509/middleware/validity/version"
 
 task :default => :spec
 RSpec::Core::RakeTask.new(:spec)
@@ -11,20 +11,22 @@ RSpec::Core::RakeTask.new(:rcov) do |t|
 	t.rcov = true
 end
 
+namespace :gem do
 desc 'Build the gem'
-task :gem_build do
-	puts `yard`
-	puts `gem build r509-middleware-validity.gemspec`
-end
+    task :build do
+        puts `yard`
+        puts `gem build r509-middleware-validity.gemspec`
+    end
 
-desc 'Install gem'
-task :gem_install do
-	puts `gem install r509-middleware-validity-#{R509::Middleware::Validity::VERSION}.gem`
-end
+    desc 'Install gem'
+    task :install do
+        puts `gem install r509-middleware-validity-#{R509::Middleware::Validity::VERSION}.gem`
+    end
 
-desc 'Uninstall gem'
-task :gem_uninstall do
-	puts `gem uninstall r509-middleware-validity`
+    desc 'Uninstall gem'
+    task :uninstall do
+        puts `gem uninstall r509-middleware-validity`
+    end
 end
 
 desc 'Build yard documentation'
