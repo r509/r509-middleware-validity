@@ -4,7 +4,6 @@ require "logger"
 
 class TestServer < Sinatra::Base
     configure do
-        set :log, Logger.new(nil)
         set :config_pool, nil
     end
 
@@ -51,6 +50,8 @@ describe R509::Middleware::Validity do
         @ca_cert = double("ca_cert")
         @config_pool = double("config_pool")
 
+        Dependo::Registry[:log] = @logger
+
         verbosity = $VERBOSE
         $VERBOSE = nil
         R509::Validity::Redis::Writer = double("writer")
@@ -60,7 +61,6 @@ describe R509::Middleware::Validity do
     end
     def app
         test_server = TestServer
-        test_server.send(:set, :log, @logger)
         test_server.send(:set, :config_pool, @config_pool)
 
         @app ||= R509::Middleware::Validity.new(test_server,@redis)

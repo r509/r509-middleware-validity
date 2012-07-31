@@ -1,9 +1,12 @@
 require "redis"
+require "dependo"
 require "r509/validity/redis/writer"
 
 module R509
     module Middleware
         class Validity
+            include Dependo::Mixin
+
             def initialize(app,redis=nil)
                 @app = app
 
@@ -25,11 +28,11 @@ module R509
                     end
                     begin
                         cert = R509::Cert.new(:cert => body)
-                        @app.log.info "Writing serial: #{cert.serial.to_s}, Issuer: #{cert.issuer.to_s}"
+                        log.info "Writing serial: #{cert.serial.to_s}, Issuer: #{cert.issuer.to_s}"
                         @writer.issue(cert.issuer.to_s,cert.serial.to_s)
                     rescue => e
-                        @app.log.error "Writing failed"
-                        @app.log.error e.inspect
+                        log.error "Writing failed"
+                        log.error e.inspect
                     end
                 elsif not (env["PATH_INFO"] =~ /^\/1\/certificate\/revoke\/?$/).nil? and status == 200
                     begin
@@ -39,12 +42,12 @@ module R509
                         serial = params["serial"]
                         reason = params["reason"].to_i || 0
 
-                        @app.log.info "Revoking serial: #{serial}, reason: #{reason}"
+                        log.info "Revoking serial: #{serial}, reason: #{reason}"
 
                         @writer.revoke(issuer, serial, Time.now.to_i, reason)
                     rescue => e
-                        @app.log.error "Revoking failed: #{serial}"
-                        @app.log.error e.inspect
+                        log.error "Revoking failed: #{serial}"
+                        log.error e.inspect
                     end
                 elsif not (env["PATH_INFO"] =~ /^\/1\/certificate\/unrevoke\/?$/).nil? and status == 200
                     begin
@@ -53,12 +56,12 @@ module R509
                         issuer = @app.config_pool[params["ca"]].ca_cert.subject.to_s
                         serial = params["serial"]
 
-                        @app.log.info "Unrevoking serial: #{serial}"
+                        log.info "Unrevoking serial: #{serial}"
 
                         @writer.unrevoke(issuer, serial)
                     rescue => e
-                        @app.log.error "Unrevoking failed: #{serial}"
-                        @app.log.error e.inspect
+                        log.error "Unrevoking failed: #{serial}"
+                        log.error e.inspect
                     end
                 end
 
