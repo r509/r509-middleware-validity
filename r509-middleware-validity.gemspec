@@ -8,6 +8,7 @@ spec = Gem::Specification.new do |s|
   s.has_rdoc = false
   s.summary = "Rack middleware that writes the serial number of issued certs to a Redis database"
   s.description = "Rack middleware that writes the serial number of issued certs to a Redis database"
+  s.add_dependency 'sinatra'
   s.add_dependency 'redis'
   s.add_dependency 'r509-validity-redis'
   s.add_dependency 'r509'
@@ -15,6 +16,7 @@ spec = Gem::Specification.new do |s|
   s.add_development_dependency 'rack-test'
   s.add_development_dependency 'rspec'
   s.add_development_dependency 'rake'
+  s.add_development_dependency 'rack-test'
   s.add_development_dependency 'rcov' if RUBY_VERSION.split('.')[1].to_i == 8
   s.add_development_dependency 'simplecov' if RUBY_VERSION.split('.')[1].to_i == 9
   s.author = "Sean Schulte"
