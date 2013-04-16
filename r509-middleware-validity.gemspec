@@ -12,7 +12,7 @@ spec = Gem::Specification.new do |s|
   s.add_dependency 'redis'
   s.add_dependency 'r509-validity-redis', ">= 0.4"
   s.add_dependency 'dependo'
-  s.add_dependency 'r509'
+  s.add_dependency 'r509', ">= 0.8"
   s.add_dependency 'rack'
   s.add_development_dependency 'rack-test'
   s.add_development_dependency 'rspec'
