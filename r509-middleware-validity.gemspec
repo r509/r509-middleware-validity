@@ -7,12 +7,12 @@ spec = Gem::Specification.new do |s|
   s.platform = Gem::Platform::RUBY
   s.has_rdoc = false
   s.summary = "Rack middleware that writes the serial number of issued certs to a Redis database"
-  s.description = "Rack middleware that writes the serial number of issued certs to a Redis database"
+  s.description = "Rack middleware that writes the serial number of issued certs to a Redis database. Uses r509 and r509-ca-http"
   s.add_dependency 'sinatra'
   s.add_dependency 'redis'
-  s.add_dependency 'r509-validity-redis', ">= 0.4"
+  s.add_dependency 'r509-validity-redis'
   s.add_dependency 'dependo'
-  s.add_dependency 'r509', ">= 0.8"
+  s.add_dependency 'r509'
   s.add_dependency 'rack'
   s.add_development_dependency 'rack-test'
   s.add_development_dependency 'rspec'
