@@ -1,4 +1,4 @@
-# r509-middleware-validity
+# r509-middleware-validity [![Build Status](https://secure.travis-ci.org/r509/r509-middleware-validity.png)](http://travis-ci.org/r509/r509-middleware-validity) [![Coverage Status](https://coveralls.io/repos/r509/r509-middleware-validity/badge.png?branch=master)](https://coveralls.io/r/r509/r509-middleware-validity?branch=master)
 
 This project is related to [r509](http://github.com/r509/r509) and [r509-ca-http](http://github.com/r509/r509-ca-http), allowing us to save certificate validity status to a Redis backend via Rack Middleware, so the CA itself doesn't need to know anything about Redis. This is done so that you can run a CA without saving validity status, if you want to do that.
 
